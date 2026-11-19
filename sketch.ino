@@ -1,11 +1,17 @@
-#include <Servo.h>
+#include <Servo.h> // BIBLIOTECA INSTALADA //
 
 
-// Servo motor
+// ==========================================
+// OBJETO DO SERVO MOTOR
+// ==========================================
+
 Servo servo;
 
 
-// Pinos
+// ==========================================
+// DEFINICAO DOS PINOS DO ARDUINO
+// ==========================================
+
 const int SERVO_PIN = 4;
 const int LED_VERDE = 5;
 const int LED_VERMELHO = A1;
@@ -17,130 +23,165 @@ const int TRIG = 13;
 const int ECHO = 12;
 
 
-// Sensor LDR
+// Sensor de luminosidade
 const int LDR = A0;
 
 
-// Configuracoes
+// ==========================================
+// CONFIGURACOES DO SISTEMA
+// ==========================================
+
+// Valor utilizado para identificar se o pote
+// possui alimento ou precisa ser abastecido.
 const int LIMIAR_LDR = 300;
+
+// Distancia para identificar a aproximacao do animal.
 const int DISTANCIA_ANIMAL = 20;
+
+// Distancia que identifica quando o animal se afastou.
 const int DISTANCIA_AFASTAMENTO = 25;
 
 
-// Servo SG90 de 360 graus
+// ==========================================
+// CONFIGURACAO DO SERVO MOTOR
+// ==========================================
+
+// O servo de rotacao continua utiliza pulsos
+// para controlar o sentido e a velocidade.
 const int SERVO_PARADO = 1500;
 const int SERVO_DIREITA = 1700;
 const int SERVO_ESQUERDA = 1300;
 
 
-// Tempos do servo
+// Tempos de movimentacao do servo (em milissegundos).
 const int TEMPO_ABRIR = 200;
 const int TEMPO_FECHAR = 200;
+
+// Tempo que o mecanismo permanece aberto.
 const int TEMPO_ABERTO = 5000;
 
 
-// Controle da aproximacao
+// ==========================================
+// VARIAVEIS DE CONTROLE
+// ==========================================
+
+// Indica se o sistema esta pronto para alimentar.
 bool prontoParaAlimentar = false;
+
+// Impede que o sistema libere racao novamente
+// enquanto o animal permanecer na mesma aproximacao.
 bool alimentou = false;
 
 
+// Contadores utilizados para confirmar as leituras
+// do sensor e evitar acionamentos por leituras isoladas.
 int leiturasPerto = 0;
 int leiturasLonge = 0;
 
 
-// Para o servo
+// ==========================================
+// FUNCAO PARA PARAR O SERVO
+// ==========================================
+
 void pararServo() {
+
+  // Envia o sinal de parada para o servo motor.
   servo.writeMicroseconds(SERVO_PARADO);
 }
 
 
-// Mede distancia
+// ==========================================
+// FUNCAO PARA MEDIR A DISTANCIA
+// ==========================================
+
 int medirDistancia() {
 
-
+  // Envia um pulso ultrassonico pelo sensor.
   digitalWrite(TRIG, LOW);
   delayMicroseconds(2);
-
 
   digitalWrite(TRIG, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIG, LOW);
 
-
+  // Mede o tempo que o sinal leva para retornar.
   long duracao = pulseIn(ECHO, HIGH, 30000);
 
-
+  // Se nao houver retorno, considera a leitura invalida.
   if (duracao == 0) {
     return -1;
   }
 
-
+  // Converte o tempo do sinal em distancia (cm).
   return duracao * 0.034 / 2;
 }
 
 
-// Libera racao
+// ==========================================
+// FUNCAO PARA LIBERAR RACAO
+// ==========================================
+
 void liberarRacao() {
 
-
-  // Verifica se o pote esta cheio
+  // Verifica o nivel do LDR para identificar
+  // se existe alimento no recipiente.
   if (analogRead(LDR) <= LIMIAR_LDR) {
 
-
+    // Se o pote estiver cheio, nao libera racao.
     pararServo();
 
-
+    // Acende o LED vermelho para indicar a situacao.
     digitalWrite(LED_VERDE, LOW);
     digitalWrite(LED_VERMELHO, HIGH);
 
-
+    // Mantem o buzzer desligado.
     noTone(BUZZER);
 
-
     Serial.println("POTE CHEIO - NAO LIBERAR");
+
+    // Encerra a funcao sem movimentar o servo.
     return;
   }
 
 
+  // Se o pote nao estiver cheio, inicia a alimentacao.
   digitalWrite(LED_VERMELHO, LOW);
   digitalWrite(LED_VERDE, HIGH);
-
 
   Serial.println("ANIMAL DETECTADO!");
   Serial.println("LIBERANDO RACAO");
 
 
-  // Liga buzzer
+  // Ativa o buzzer durante o processo.
   tone(BUZZER, 1000);
 
 
-  // Abre aproximadamente 45 graus
+  // Aciona o servo no sentido de abertura.
   servo.writeMicroseconds(SERVO_DIREITA);
   delay(TEMPO_ABRIR);
 
 
-  // Para aberto
+  // Interrompe o movimento do servo.
   pararServo();
 
 
-  // Aguarda 5 segundos
+  // Mantem o mecanismo aberto durante 5 segundos.
   Serial.println("SERVO ABERTO");
   delay(TEMPO_ABERTO);
 
 
-  // Fecha
+  // Aciona o servo no sentido de fechamento.
   Serial.println("FECHANDO SERVO");
-
 
   servo.writeMicroseconds(SERVO_ESQUERDA);
   delay(TEMPO_FECHAR);
 
 
-  // Para na posicao inicial
+  // Para o servo apos o fechamento.
   pararServo();
 
 
-  // Desliga buzzer e LED verde
+  // Desliga o buzzer e o LED verde.
   noTone(BUZZER);
   digitalWrite(LED_VERDE, LOW);
 
@@ -150,26 +191,40 @@ void liberarRacao() {
 }
 
 
+// ==========================================
+// CONFIGURACAO INICIAL DO ARDUINO
+// ==========================================
+
 void setup() {
 
-
+  // Inicia a comunicacao serial para acompanhar
+  // as informacoes e leituras do sistema.
   Serial.begin(9600);
 
 
+  // Configura LEDs e buzzer como saidas.
   pinMode(LED_VERDE, OUTPUT);
   pinMode(LED_VERMELHO, OUTPUT);
   pinMode(BUZZER, OUTPUT);
 
 
+  // Configura os pinos do sensor ultrassonico.
   pinMode(TRIG, OUTPUT);
   pinMode(ECHO, INPUT);
+
+
+  // Configura o LDR como entrada analogica.
   pinMode(LDR, INPUT);
 
 
+  // Conecta o servo ao pino definido.
   servo.attach(SERVO_PIN);
+
+  // Garante que o servo comece parado.
   pararServo();
 
 
+  // Mantem os LEDs e o buzzer desligados inicialmente.
   digitalWrite(LED_VERDE, LOW);
   digitalWrite(LED_VERMELHO, LOW);
   noTone(BUZZER);
@@ -178,37 +233,49 @@ void setup() {
   Serial.println("ALIMENTADOR INICIADO");
   Serial.println("AGUARDANDO AREA LIVRE");
 
-
+  // Aguarda 2 segundos antes de iniciar o funcionamento.
   delay(2000);
 }
 
 
+// ==========================================
+// LOOP PRINCIPAL DO SISTEMA
+// ==========================================
+
 void loop() {
 
-
+  // Realiza a leitura da distancia do sensor.
   int distancia = medirDistancia();
 
-
+  // Exibe a distancia no monitor serial.
   Serial.print("DISTANCIA: ");
   Serial.println(distancia);
 
 
-  // OBJETO AFASTADO
+  // ========================================
+  // VERIFICA SE O ANIMAL ESTA AFASTADO
+  // ========================================
+
   if (distancia >= DISTANCIA_AFASTAMENTO) {
 
-
+    // Conta quantas leituras consecutivas indicam
+    // que o animal esta afastado.
     leiturasLonge++;
+
+    // Zera o contador de proximidade.
     leiturasPerto = 0;
 
 
-    // Confirma 4 leituras de afastamento
+    // Exige 4 leituras consecutivas para confirmar
+    // que o animal realmente se afastou.
     if (leiturasLonge >= 4) {
 
-
+      // Libera o sistema para uma nova alimentacao.
       prontoParaAlimentar = true;
       alimentou = false;
 
 
+      // Desliga os sinais e garante o servo parado.
       digitalWrite(LED_VERMELHO, LOW);
       digitalWrite(LED_VERDE, LOW);
       noTone(BUZZER);
@@ -217,40 +284,53 @@ void loop() {
   }
 
 
-  // OBJETO A MENOS DE 20 CM
+  // ========================================
+  // VERIFICA SE O ANIMAL ESTA PROXIMO
+  // ========================================
+
   else if (distancia > 0 &&
            distancia < DISTANCIA_ANIMAL) {
 
-
+    // Conta as leituras consecutivas de proximidade.
     leiturasPerto++;
+
+    // Zera o contador de afastamento.
     leiturasLonge = 0;
 
 
-    // Confirma 4 leituras de proximidade
+    // Confirma a aproximacao com 4 leituras.
+    // Tambem verifica se o sistema esta liberado
+    // e se ainda nao realizou a alimentacao.
     if (leiturasPerto >= 4 &&
         prontoParaAlimentar &&
         !alimentou) {
 
 
-      // Impede nova liberacao
-      // enquanto o objeto estiver presente
+      // Bloqueia uma nova liberacao enquanto
+      // o animal permanecer proximo.
       alimentou = true;
       prontoParaAlimentar = false;
 
 
+      // Executa o processo de alimentacao.
       liberarRacao();
     }
   }
 
 
-  // LEITURA INVALIDA OU ZONA INTERMEDIARIA
+  // ========================================
+  // LEITURA INVALIDA OU DISTANCIA INTERMEDIARIA
+  // ========================================
+
   else {
 
-
+    // Reinicia os contadores quando a distancia
+    // nao corresponde a nenhuma das condicoes.
     leiturasPerto = 0;
     leiturasLonge = 0;
   }
 
 
+  // Pequena pausa entre as verificacoes do sensor.
   delay(150);
 }
